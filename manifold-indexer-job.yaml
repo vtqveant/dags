@@ -1,0 +1,20 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: manifold-indexer-job
+spec:
+  schedule: "0 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: manifold-indexer-job
+            image: harbor.eventflow.ru/library/manifold-indexer-job:latest
+            imagePullPolicy: IfNotPresent
+            env:
+              - name: S3_API_HOST
+                value: "10.43.76.115"
+              - name: S3_API_PORT
+                value: "9000"
+          restartPolicy: OnFailure

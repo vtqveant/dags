@@ -24,3 +24,13 @@ $ kubectl apply -f manifold-indexer-job.yaml
 $ kubectl get cronjob manifold-indexer-job
 $ kubectl get jobs --watch
 ```
+
+
+### MinIO 
+
+  * [Examples in Python](https://github.com/minio/minio-py)
+
+### Redis
+
+  * [Python client](https://redis.io/docs/clients/python/)
+  * [RediSearch](https://github.com/RediSearch/redisearch-getting-started)

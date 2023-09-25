@@ -17,4 +17,10 @@ spec:
                 value: "10.43.76.115"
               - name: S3_API_PORT
                 value: "9000"
+              - name: S3_ACCESS_KEY
+                value: "Vw4FUH4zzKY62ZYUcSS1"
+              - name: S3_SECRET_KEY
+                value: "EUf4skSLyoAfa9qiBnniGIG0HQXms153biNFHGDv"
+              - name: EMBEDDINGS_ENDPOINT
+                value: "http://manifold-embeddings-s/"
           restartPolicy: OnFailure

@@ -8,6 +8,8 @@ spec:
     spec:
       template:
         spec:
+          imagePullSecrets:
+            - name: registry-3
           containers:
           - name: manifold-indexer-job
             image: harbor.eventflow.ru/library/manifold-indexer-job:latest
@@ -22,5 +24,6 @@ spec:
               - name: S3_SECRET_KEY
                 value: "EUf4skSLyoAfa9qiBnniGIG0HQXms153biNFHGDv"
               - name: EMBEDDINGS_ENDPOINT
-                value: "http://manifold-embeddings-s/"
+                value: "http://manifold-embeddings-s/v1/embeddings"
           restartPolicy: OnFailure
+

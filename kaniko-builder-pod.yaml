@@ -19,7 +19,7 @@ spec:
         memory: 500Mi
     volumeMounts:
       - name: config-json
-        mountPath: /kaniko/.docker/
+        mountPath: /kaniko/.docker
   volumes:
     - name: config-json
       secret:

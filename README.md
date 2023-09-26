@@ -4,20 +4,11 @@
 A cronjob for Kubernetes that lists objects in a S3 (MinIO) bucket
 
 
-1. Build an image and push to Harbor
-
-```bash
-$ docker build . -t manifold-indexer-job
-$ docker tag manifold-indexer-job harbor.eventflow.ru/library/manifold-indexer-job:latest
-$ docker push harbor.eventflow.ru/library/manifold-indexer-job:latest
-```
-
-Alternative approach: build with [Kaniko](https://github.com/GoogleContainerTools/kaniko#running-kaniko-in-a-kubernetes-cluster) in the cluster.
+1. Build an image and push to Harbor (using [Kaniko](https://github.com/GoogleContainerTools/kaniko#running-kaniko-in-a-kubernetes-cluster))
 
 ```bash
 $ kubectl apply -f kaniko-builder-pod.yaml
 ```
-
 
 2. Deploy a cronjob to Kubernetes
 

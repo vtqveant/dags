@@ -12,6 +12,13 @@ $ docker tag manifold-indexer-job harbor.eventflow.ru/library/manifold-indexer-j
 $ docker push harbor.eventflow.ru/library/manifold-indexer-job:latest
 ```
 
+Alternative approach: build with [Kaniko](https://github.com/GoogleContainerTools/kaniko#running-kaniko-in-a-kubernetes-cluster) in the cluster.
+
+```bash
+$ kubectl apply -f kaniko-builder-pod.yaml
+```
+
+
 2. Deploy a cronjob to Kubernetes
 
 ```bash

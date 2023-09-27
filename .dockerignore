@@ -2,4 +2,4 @@ venv/
 .venv/
 .idea/
 
-manifold-indexer-job.yaml
+*.yaml

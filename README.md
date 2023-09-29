@@ -49,3 +49,4 @@ $ kubectl get jobs --watch
 
   * [Python client](https://redis.io/docs/clients/python/)
   * [RediSearch](https://github.com/RediSearch/redisearch-getting-started)
+  * [Vector search example](https://redis.io/docs/interact/search-and-query/search/vectors/)

@@ -5,6 +5,7 @@ from typing import List, Optional
 import redis
 import requests
 from minio import Minio, S3Error
+from redis import ResponseError
 from redis.commands.search.field import TextField, VectorField
 from redis.commands.search.indexDefinition import IndexDefinition, IndexType
 from requests import JSONDecodeError
@@ -33,6 +34,8 @@ def encode(lines: List[str]) -> Optional[List[List[float]]]:
 
 
 def main():
+    print("Job started")
+
     redis_client = redis.Redis(
         host=REDIS_HOST,
         port=REDIS_PORT,
@@ -71,17 +74,23 @@ def main():
                     key_prefix = f"{obj.bucket_name}/{obj.object_name}:"
                     index_name = f"idx:{obj.bucket_name}_{obj.object_name}_vss"
 
-                    print("\nDropping index " + index_name)
-                    res = redis_client.ft(index_name).dropindex()
-                    print(res)
+                    print("\nDropping index (index will be recreated): " + index_name)
+                    try:
+                        res = redis_client.ft(index_name).info()
+                        print(res)
+                        res = redis_client.ft(index_name).dropindex()
+                        print(res)
+                    except ResponseError:
+                        print("Index not found: " + index_name)
 
                     i = 1
                     for line in response.readlines():
                         text = line.decode("UTF-8")
                         embeddings = encode(text)
-                        redis_client.json().set(key_prefix + str(i), "$", {"text": text, "embedding": embeddings[0]})
-                        time.sleep(10)  # since embeddings endpoint does not have throttling yet
-                        i += 1
+                        if embeddings is not None:
+                            redis_client.json().set(key_prefix + str(i), "$", {"text": text, "embedding": embeddings[0]})
+                            i += 1
+                        time.sleep(50 / 1000)  # throttle
                 finally:
                     response.close()
                     response.release_conn()
@@ -100,13 +109,9 @@ def main():
                         as_name="vector",
                     ),
                 )
-                definition = IndexDefinition(
-                    prefix=[key_prefix],
-                    index_type=IndexType.JSON
-                )
-
+                definition = IndexDefinition(prefix=[key_prefix], index_type=IndexType.JSON)
                 res = redis_client.ft(index_name).create_index(fields=schema, definition=definition)
-                print("\nIndex created")
+                print("\nIndex created: " + index_name)
                 print(res)
 
     except S3Error as e:

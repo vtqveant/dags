@@ -3,4 +3,6 @@ COPY indexer /root/app
 COPY requirements.txt /tmp/requirements.txt
 RUN pip3 install -r /tmp/requirements.txt
 
-CMD ["python3", "/root/app/main.py"]
+ENV PYTHONUNBUFFERED=0
+
+CMD ["python3", "-u", "/root/app/main.py"]

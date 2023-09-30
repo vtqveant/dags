@@ -8,3 +8,6 @@ docker build . -t ${REGISTRY}/${IMAGE}:${TAG} && \
     docker tag ${REGISTRY}/${IMAGE}:${TAG} ${REGISTRY}/${IMAGE}:latest && \
     docker push ${REGISTRY}/${IMAGE}:${TAG} && \
     docker push ${REGISTRY}/${IMAGE}:latest
+
+echo
+echo ${REGISTRY}/${IMAGE}:${TAG}

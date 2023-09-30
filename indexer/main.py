@@ -3,6 +3,7 @@ import os
 import time
 from typing import List, Optional
 
+import numpy as np
 import redis
 import requests
 from minio import Minio, S3Error
@@ -32,6 +33,28 @@ def encode(lines: List[str]) -> Optional[List[List[float]]]:
     except JSONDecodeError:
         response.close()
         return None
+
+
+def batch_delete_keys(redis_client: redis.Redis, pattern: str) -> int:
+    """
+    s. https://gist.github.com/dingmaotu/b465509f5c5d54dceacf5a2eb985c739
+    """
+    item_count = 0
+    batch_size = 100000
+    keys = []
+
+    for k in redis_client.scan_iter(pattern, count=batch_size):
+        keys.append(k)
+        if len(keys) >= batch_size:
+            item_count += len(keys)
+            redis_client.delete(*keys)
+            keys = []
+
+    if len(keys) > 0:
+        item_count += len(keys)
+        redis_client.delete(*keys)
+
+    return item_count
 
 
 def main():
@@ -67,7 +90,7 @@ def main():
         print(f"\nObjects in bucket `{S3_BUCKET}` (prefix '11/'):")
         objects = minio.list_objects(S3_BUCKET, prefix="11/")
         for obj in objects:
-            print(vars(obj))
+            print("\n" + str(vars(obj)))
 
             path = f"{obj.bucket_name}/{obj.object_name}"
 
@@ -78,8 +101,8 @@ def main():
             metadata = redis_client.hgetall("metadata:" + path)
             if (metadata is not None and isinstance(metadata, dict) and
                     "ETag" in metadata.keys() and metadata["ETag"] == obj.etag and
-                    "index_ts" in metadata.keys()):
-                print(f"{path} unchanged, indexed on {metadata['index_ts']}")
+                    "index_dt" in metadata.keys()):
+                print(f"{path} unchanged, indexed on {metadata['index_dt']}")
                 continue
 
             # 2. reindex
@@ -87,6 +110,8 @@ def main():
                 response = minio.get_object(obj.bucket_name, obj.object_name)
 
                 index_name = "idx:" + path
+
+                # delete stale index
                 try:
                     redis_client.ft(index_name).info()
                     redis_client.ft(index_name).dropindex()
@@ -94,12 +119,18 @@ def main():
                 except ResponseError:
                     print("Index not found: " + index_name)
 
+                # delete stale data
+                item_count = batch_delete_keys(redis_client, f"{path}:*")
+                print(f"Removed {item_count} stale entries")
+
                 i = 1
                 for line in response.readlines():
                     text = line.decode("UTF-8")
                     embeddings = encode(text)
                     if embeddings is not None:
-                        redis_client.json().set(path + ":" + str(i), "$", {"text": text, "embedding": embeddings[0]})
+                        name = path + ":" + str(i)
+                        embedding = np.array(embeddings[0]).astype(np.float32).tobytes()
+                        redis_client.hset(name, mapping={"text": text, "embedding": embedding})
                         i += 1
                     time.sleep(50 / 1000)  # throttle
             finally:
@@ -108,26 +139,29 @@ def main():
 
             # create index
             schema = (
-                TextField("$.text", no_stem=True, as_name="text"),
+                TextField("text", no_stem=True, as_name="text"),
                 VectorField(
-                    "$.embedding",
-                    "FLAT",
+                    "embedding",
+                    "HNSW",
                     {
                         "TYPE": "FLOAT32",
                         "DIM": vector_dimension,
                         "DISTANCE_METRIC": "COSINE",
+                        "M": 20,  # HNSW parameter
+                        "EF_CONSTRUCTION": 100  # HNSW parameter
                     },
-                    as_name="vector",
-                ),
+                    as_name="vector"
+                )
             )
-            definition = IndexDefinition(prefix=[path + ":"], index_type=IndexType.JSON)
-            res = redis_client.ft(index_name).create_index(fields=schema, definition=definition)
+            definition = IndexDefinition(prefix=[path + ":"], index_type=IndexType.HASH)
+            redis_client.ft(index_name).create_index(fields=schema, definition=definition)
             print("Index created: " + index_name)
+            res = redis_client.ft(index_name).info()
             print(res)
 
             print(f"Saving metadata for {path}")
             redis_client.hset("metadata:" + path, "ETag", obj.etag)
-            redis_client.hset("metadata:" + path, "index_ts", str(datetime.datetime.now()))
+            redis_client.hset("metadata:" + path, "index_dt", str(datetime.datetime.now()))
     except S3Error as e:
         print("error occurred.", e)
     finally:

@@ -82,21 +82,29 @@ def main():
         print("OK")
         print("Embeddings dimension: " + str(vector_dimension))
 
-        # List objects information whose names start with "my/prefix/".
-        print(f"\nObjects in bucket `{S3_BUCKET}` (prefix '11/'):")
-        objects = minio.list_objects(S3_BUCKET, prefix="11/")
-        for obj in objects:
+        # collect objects in S3
+        dirs = [(S3_BUCKET, "")]
+        files = []
+        while len(dirs) > 0:
+            bucket, prefix = dirs.pop()
+            file_objects = minio.list_objects(bucket, prefix=prefix)
+            for obj in file_objects:
+                if obj.is_dir:
+                    dirs.append((bucket, obj.object_name))
+                else:
+                    if obj.object_name.endswith(".txt"):
+                        files.append(obj)
+
+        # build indices
+        for obj in files:
             print("\n" + str(vars(obj)))
 
             path = f"{obj.bucket_name}/{obj.object_name}"
 
-            if obj.is_dir:
-                continue
-
             # 1. check ETag of object, if object not modified and index exists, skip it
             metadata = redis_client.hgetall("metadata:" + path)
             if (metadata is not None and isinstance(metadata, dict) and
-                    "ETag" in metadata.keys() and metadata["ETag"] == obj.etag and
+                    "object_etag" in metadata.keys() and metadata["object_etag"] == obj.etag and
                     "index_dt" in metadata.keys()):
                 print(f"{path} unchanged, indexed on {metadata['index_dt']}")
                 continue
@@ -119,14 +127,12 @@ def main():
                 item_count = batch_delete_keys(redis_client, f"{path}:*")
                 print(f"Removed {item_count} stale entries")
 
-                i = 1
                 data = response.read()
                 data_decoded = data.decode("UTF-8")
 
-                # lazily split to chunks containing 64 words (with overlap)
-                chunker = Chunker(text=data_decoded, chunk_size=64)
-
-                for chunk in chunker.get_chunks():
+                # lazily split to chunks containing 32 words (with overlap)
+                chunker = Chunker(text=data_decoded, chunk_size=32)
+                for i, chunk in enumerate(chunker.get_chunks(), start=1):
                     text = " ".join(chunk)
                     embeddings = encode([text])
                     if embeddings is not None:
@@ -162,8 +168,12 @@ def main():
             print(res)
 
             print(f"Saving metadata for {path}")
-            redis_client.hset("metadata:" + path, "ETag", obj.etag)
-            redis_client.hset("metadata:" + path, "index_dt", str(datetime.datetime.now()))
+            redis_client.hset("metadata:" + path, mapping={
+                "object_name": path,
+                "object_etag": obj.etag,
+                "index_name": index_name,
+                "index_dt": str(datetime.datetime.now())
+            })
     except S3Error as e:
         print("error occurred.", e)
     finally:

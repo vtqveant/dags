@@ -6,12 +6,16 @@ A cronjob for Kubernetes that lists objects in a S3 (MinIO) bucket
 
 #### Parameters
 
+  * REDIS_HOST
+  * REDIS_PORT
+  * REDIS_USERNAME
+  * REDIS_PASSWORD
+  * EMBEDDINGS_ENDPOINT
   * S3_API_HOST
   * S3_API_PORT
   * S3_ACCESS_KEY
   * S3_SECRET_KEY
-  * EMBEDDINGS_ENDPOINT
-
+  * S3_BUCKET
 
 #### Automated deployment
 

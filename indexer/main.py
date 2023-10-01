@@ -92,7 +92,7 @@ def main():
                 if obj.is_dir:
                     dirs.append((bucket, obj.object_name))
                 else:
-                    if obj.object_name.endswith(".txt"):
+                    if obj.object_name.lower().endswith(".txt"):
                         files.append(obj)
 
         # build indices
@@ -109,7 +109,7 @@ def main():
                 print(f"{path} unchanged, indexed on {metadata['index_dt']}")
                 continue
 
-            # 2. reindex
+            # 2. split, vectorize and save to Redis
             try:
                 response = minio.get_object(obj.bucket_name, obj.object_name)
 

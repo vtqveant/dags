@@ -1,5 +1,4 @@
 import datetime
-import os
 import time
 from typing import List, Optional
 
@@ -12,16 +11,8 @@ from redis.commands.search.field import TextField, VectorField
 from redis.commands.search.indexDefinition import IndexDefinition, IndexType
 from requests import JSONDecodeError
 
-REDIS_HOST = os.getenv("REDIS_HOST")
-REDIS_PORT = os.getenv("REDIS_PORT")
-REDIS_USERNAME = os.getenv("REDIS_USERNAME")
-REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
-EMBEDDINGS_ENDPOINT = os.getenv("EMBEDDINGS_ENDPOINT")
-S3_API_HOST = os.getenv("S3_API_HOST")
-S3_API_PORT = os.getenv("S3_API_PORT")
-S3_ACCESS_KEY = os.getenv("S3_ACCESS_KEY")
-S3_SECRET_KEY = os.getenv("S3_SECRET_KEY")
-S3_BUCKET = os.getenv("S3_BUCKET")
+from indexer.chunker import Chunker
+from settings import *
 
 
 def encode(lines: List[str]) -> Optional[List[List[float]]]:
@@ -67,6 +58,14 @@ def main():
         secure=False
     )
 
+    redis_client = redis.Redis(
+        host=REDIS_HOST,
+        port=REDIS_PORT,
+        username=REDIS_USERNAME,
+        password=REDIS_PASSWORD,
+        decode_responses=True
+    )
+
     try:
         found = minio.bucket_exists(S3_BUCKET)
         if not found:
@@ -82,9 +81,6 @@ def main():
         vector_dimension = len(embeddings[0])
         print("OK")
         print("Embeddings dimension: " + str(vector_dimension))
-
-        redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, username=REDIS_USERNAME, password=REDIS_PASSWORD,
-                                   decode_responses=True)
 
         # List objects information whose names start with "my/prefix/".
         print(f"\nObjects in bucket `{S3_BUCKET}` (prefix '11/'):")
@@ -124,9 +120,15 @@ def main():
                 print(f"Removed {item_count} stale entries")
 
                 i = 1
-                for line in response.readlines():
-                    text = line.decode("UTF-8")
-                    embeddings = encode(text)
+                data = response.read()
+                data_decoded = data.decode("UTF-8")
+
+                # lazily split to chunks containing 256 words (with overlap)
+                chunker = Chunker(text=data_decoded, chunk_size=256)
+
+                for chunk in chunker.get_chunks():
+                    text = " ".join(chunk)
+                    embeddings = encode([text])
                     if embeddings is not None:
                         name = path + ":" + str(i)
                         embedding = np.array(embeddings[0]).astype(np.float32).tobytes()

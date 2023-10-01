@@ -123,8 +123,8 @@ def main():
                 data = response.read()
                 data_decoded = data.decode("UTF-8")
 
-                # lazily split to chunks containing 256 words (with overlap)
-                chunker = Chunker(text=data_decoded, chunk_size=256)
+                # lazily split to chunks containing 64 words (with overlap)
+                chunker = Chunker(text=data_decoded, chunk_size=64)
 
                 for chunk in chunker.get_chunks():
                     text = " ".join(chunk)

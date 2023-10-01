@@ -11,7 +11,7 @@ from redis.commands.search.field import TextField, VectorField
 from redis.commands.search.indexDefinition import IndexDefinition, IndexType
 from requests import JSONDecodeError
 
-from indexer.chunker import Chunker
+from chunker import Chunker
 from settings import *
 
 
